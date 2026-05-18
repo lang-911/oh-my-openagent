@@ -2,7 +2,7 @@ import type { HookDeps } from "./types"
 import type { AutoRetryHelpers } from "./auto-retry"
 import { HOOK_NAME } from "./constants"
 import { log } from "../../shared/logger"
-import { extractStatusCode, extractErrorName, classifyErrorType, isRetryableError, extractAutoRetrySignal, containsErrorContent } from "./error-classifier"
+import { extractStatusCode, extractErrorName, classifyErrorType, isRetryableError, extractAutoRetrySignal, containsErrorContent, classifyRetryPolicy } from "./error-classifier"
 import { createFallbackState } from "./fallback-state"
 import { getFallbackModelsForSession } from "./fallback-models"
 import { resolveFallbackBootstrapModel } from "./fallback-bootstrap-model"
@@ -116,7 +116,8 @@ export function createMessageUpdateHandler(deps: HookDeps, helpers: AutoRetryHel
         errorType: classifyErrorType(error),
       })
 
-      if (!isRetryableError(error, config.retry_on_errors)) {
+      const msgAction = classifyRetryPolicy({ kind: "error", error }, config)
+      if (msgAction === "none") {
         log(`[${HOOK_NAME}] message.updated error not retryable, skipping fallback`, {
           sessionID,
           statusCode: extractStatusCode(error, config.retry_on_errors),
@@ -191,6 +192,7 @@ export function createMessageUpdateHandler(deps: HookDeps, helpers: AutoRetryHel
         fallbackModels,
         resolvedAgent,
         source: "message.updated",
+        action: msgAction,
       })
     }
   }

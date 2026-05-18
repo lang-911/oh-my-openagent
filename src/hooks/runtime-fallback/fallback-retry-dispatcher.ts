@@ -1,5 +1,5 @@
 import type { AutoRetryHelpers } from "./auto-retry"
-import type { HookDeps, FallbackState } from "./types"
+import type { HookDeps, FallbackState, RetryAction } from "./types"
 import { HOOK_NAME } from "./constants"
 import { log } from "../../shared/logger"
 import { prepareFallback } from "./fallback-state"
@@ -10,6 +10,7 @@ type DispatchFallbackRetryOptions = {
   fallbackModels: string[]
   resolvedAgent?: string
   source: string
+  action?: RetryAction
 }
 
 export async function dispatchFallbackRetry(
@@ -17,14 +18,15 @@ export async function dispatchFallbackRetry(
   helpers: AutoRetryHelpers,
   options: DispatchFallbackRetryOptions,
 ): Promise<void> {
-  // Loop: try a model, if same-model retry fails to dispatch, advance and retry.
-  // This avoids relying on a second session.error event which causes duplicate fallbacks.
+  let action: RetryAction | undefined = options.action
+
   while (true) {
     const result = prepareFallback(
       options.sessionID,
       options.state,
       options.fallbackModels,
       deps.config,
+      action,
     )
 
     if (!result.success) {
@@ -69,15 +71,12 @@ export async function dispatchFallbackRetry(
       options.source,
     )
 
-    // Cross-model fallback dispatched: done. Wait for the retry to complete via events.
     if (!result.sameModel) return
 
-    // Same-model retry dispatched successfully: done. The normal event flow
-    // (session.error on the retry's failure) will trigger the next fallback cycle.
     if (dispatched) return
 
-    // Same-model retry failed to dispatch (promptAsync threw, invalid model, etc.).
-    // Advance to next model within this same call to avoid duplicate fallback
-    // from a subsequent session.error event.
+    if (action === "same_model_then_chain") {
+      action = "chain_only"
+    }
   }
 }

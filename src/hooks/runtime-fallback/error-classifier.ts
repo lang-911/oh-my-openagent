@@ -1,6 +1,10 @@
 import { DEFAULT_CONFIG, RETRYABLE_ERROR_PATTERNS } from "./constants"
+import type { RetryAction, ClassifierInput } from "./types"
+import type { RuntimeFallbackConfig } from "../../config"
+import { classifyAutoRetrySignal } from "./auto-retry-signal"
 
 export { extractAutoRetrySignal } from "./auto-retry-signal"
+export { classifyAutoRetrySignal } from "./auto-retry-signal"
 
 export function getErrorMessage(error: unknown): string {
   if (!error) return ""
@@ -185,8 +189,6 @@ export function isRetryableError(error: unknown, retryOnErrors: number[]): boole
   }
 
   if (errorType === "quota_exceeded") {
-    // Quota exhaustion means the current model/provider cannot serve requests.
-    // Trigger fallback to the next configured model instead of stopping entirely.
     return true
   }
 
@@ -195,4 +197,46 @@ export function isRetryableError(error: unknown, retryOnErrors: number[]): boole
   }
 
   return RETRYABLE_ERROR_PATTERNS.some((pattern) => pattern.test(message))
+}
+
+export function classifyRetryPolicy(input: ClassifierInput, config: RuntimeFallbackConfig): RetryAction {
+  if (input.kind === "timeout") {
+    return "chain_only"
+  }
+
+  if (input.kind === "auto_retry_signal") {
+    return classifyAutoRetrySignal(input.text)
+  }
+
+  const errorType = classifyErrorType(input.error)
+
+  if (errorType === "missing_api_key" || errorType === "invalid_api_key") {
+    return "chain_only"
+  }
+
+  if (errorType === "model_not_found" || errorType === "quota_exceeded") {
+    return "chain_only"
+  }
+
+  const statusCode = extractStatusCode(input.error)
+  const retryOnErrors = config.retry_on_errors ?? []
+
+  if (statusCode !== undefined && retryOnErrors.includes(statusCode)) {
+    if (config.retry_advance_chain_on?.includes(statusCode)) {
+      return "chain_only"
+    }
+    if (config.retry_same_model_on?.includes(statusCode)) {
+      return "same_model_then_chain"
+    }
+    return "chain_only"
+  }
+
+  const message = getErrorMessage(input.error)
+  if (RETRYABLE_ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
+    const signalAction = classifyAutoRetrySignal(message)
+    if (signalAction !== "none") return signalAction
+    return "chain_only"
+  }
+
+  return "none"
 }

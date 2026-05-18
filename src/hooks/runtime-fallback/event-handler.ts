@@ -2,7 +2,7 @@ import type { HookDeps } from "./types"
 import type { AutoRetryHelpers } from "./auto-retry"
 import { HOOK_NAME } from "./constants"
 import { log } from "../../shared/logger"
-import { extractStatusCode, extractErrorName, classifyErrorType, isRetryableError } from "./error-classifier"
+import { extractStatusCode, extractErrorName, classifyErrorType, isRetryableError, classifyRetryPolicy } from "./error-classifier"
 import { createFallbackState } from "./fallback-state"
 import { getFallbackModelsForSession } from "./fallback-models"
 import { SessionCategoryRegistry } from "../../shared/session-category-registry"
@@ -185,7 +185,8 @@ export function createEventHandler(deps: HookDeps, helpers: AutoRetryHelpers) {
       errorType: classifyErrorType(error),
     })
 
-    if (!isRetryableError(error, config.retry_on_errors)) {
+    const retryAction = classifyRetryPolicy({ kind: "error", error }, config)
+    if (retryAction === "none") {
       log(`[${HOOK_NAME}] Error not retryable, skipping fallback`, {
         sessionID,
         retryable: false,
@@ -230,6 +231,7 @@ export function createEventHandler(deps: HookDeps, helpers: AutoRetryHelpers) {
       fallbackModels,
       resolvedAgent,
       source: "session.error",
+      action: retryAction,
     })
   }
 

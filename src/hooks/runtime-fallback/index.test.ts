@@ -84,7 +84,7 @@ describe("runtime-fallback", () => {
       enabled: true,
       retry_on_errors: [429, 503, 529],
       max_fallback_attempts: 3,
-      same_model_retries: 0,
+      same_model_max_attempts: 0,
       cooldown_seconds: 60,
       notify_on_fallback: true,
       ...overrides,

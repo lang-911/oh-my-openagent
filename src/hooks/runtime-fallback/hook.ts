@@ -38,8 +38,10 @@ export function createRuntimeFallbackHook(
   const config = {
     enabled: options?.config?.enabled ?? DEFAULT_CONFIG.enabled,
     retry_on_errors: options?.config?.retry_on_errors ?? DEFAULT_CONFIG.retry_on_errors,
+    retry_same_model_on: options?.config?.retry_same_model_on ?? DEFAULT_CONFIG.retry_same_model_on,
+    retry_advance_chain_on: options?.config?.retry_advance_chain_on ?? DEFAULT_CONFIG.retry_advance_chain_on,
     max_fallback_attempts: options?.config?.max_fallback_attempts ?? DEFAULT_CONFIG.max_fallback_attempts,
-    same_model_retries: options?.config?.same_model_retries ?? DEFAULT_CONFIG.same_model_retries,
+    same_model_max_attempts: options?.config?.same_model_max_attempts ?? DEFAULT_CONFIG.same_model_max_attempts,
     cooldown_seconds: options?.config?.cooldown_seconds ?? DEFAULT_CONFIG.cooldown_seconds,
     timeout_seconds: options?.config?.timeout_seconds ?? DEFAULT_CONFIG.timeout_seconds,
     notify_on_fallback: options?.config?.notify_on_fallback ?? DEFAULT_CONFIG.notify_on_fallback,
