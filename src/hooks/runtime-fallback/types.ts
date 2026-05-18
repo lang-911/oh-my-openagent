@@ -44,6 +44,8 @@ export interface FallbackState {
   failedModels: Map<string, number>
   attemptCount: number
   pendingFallbackModel?: string
+  /** Per-model retry counter for same-model retries */
+  sameModelRetries: Map<string, number>
 }
 
 export interface FallbackResult {
@@ -51,6 +53,8 @@ export interface FallbackResult {
   newModel?: string
   error?: string
   maxAttemptsReached?: boolean
+  /** When true, retrying the same model (not advancing the chain) */
+  sameModel?: boolean
 }
 
 export interface RuntimeFallbackOptions {

@@ -123,9 +123,9 @@ export async function startTask(
 
   const sessionID = createResult.data.id
   const normalizedAgent = stripAgentListSortPrefix(input.agent)
-  await input.onSessionCreated?.(sessionID)
   subagentSessions.add(sessionID)
   setSessionAgent(sessionID, normalizedAgent)
+  await input.onSessionCreated?.(sessionID)
 
   task.status = "running"
   task.startedAt = new Date()

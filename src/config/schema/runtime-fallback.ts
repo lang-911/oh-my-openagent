@@ -7,6 +7,8 @@ export const RuntimeFallbackConfigSchema = z.object({
   retry_on_errors: z.array(z.number()).optional(),
   /** Maximum fallback attempts per session (default: 3) */
   max_fallback_attempts: z.number().min(1).max(20).optional(),
+  /** Number of times to retry the same model before advancing the fallback chain (default: 0) */
+  same_model_retries: z.number().min(0).max(10).optional(),
   /** Cooldown in seconds before retrying a failed model (default: 60) */
   cooldown_seconds: z.number().min(0).optional(),
   /** Session-level timeout in seconds to advance fallback when provider hangs (default: 30). Set to 0 to disable auto-retry signal detection (only error-based fallback remains active). */

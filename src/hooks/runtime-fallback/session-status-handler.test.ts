@@ -58,6 +58,7 @@ function createHelpers(abortCalls: string[], retryCalls: Array<{ sessionID: stri
     scheduleSessionFallbackTimeout: () => {},
     autoRetryWithFallback: async (sessionID: string, model: string, _resolvedAgent: string | undefined, source: string) => {
       retryCalls.push({ sessionID, model, source })
+      return true
     },
     resolveAgentForSessionFromContext: async () => undefined,
     cleanupStaleSessions: () => {},

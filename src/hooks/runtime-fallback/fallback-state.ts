@@ -71,6 +71,7 @@ export function createFallbackState(originalModel: string): FallbackState {
     failedModels: new Map<string, number>(),
     attemptCount: 0,
     pendingFallbackModel: undefined,
+    sameModelRetries: new Map<string, number>(),
   }
 }
 
@@ -116,6 +117,25 @@ export function prepareFallback(
     return { success: false, error: "Max fallback attempts reached", maxAttemptsReached: true }
   }
 
+  // Same-model retry: before advancing the chain, retry the current model
+  // up to config.same_model_retries times for transient errors.
+  if (config.same_model_retries > 0) {
+    const currentModelRetries = state.sameModelRetries.get(state.currentModel) ?? 0
+    if (currentModelRetries < config.same_model_retries) {
+      state.sameModelRetries.set(state.currentModel, currentModelRetries + 1)
+      state.attemptCount++
+      state.pendingFallbackModel = state.currentModel
+      log(`[${HOOK_NAME}] Same-model retry (${currentModelRetries + 1}/${config.same_model_retries})`, {
+        sessionID,
+        model: state.currentModel,
+        attempt: state.attemptCount,
+      })
+      return { success: true, newModel: state.currentModel, sameModel: true }
+    }
+    // Exhausted same-model retries for this model — reset counter and advance
+    state.sameModelRetries.delete(state.currentModel)
+  }
+
   const nextModel = findNextAvailableFallback(state, fallbackModels, config.cooldown_seconds)
 
   if (!nextModel) {
@@ -139,5 +159,5 @@ export function prepareFallback(
   state.currentModel = nextModel
   state.pendingFallbackModel = nextModel
 
-  return { success: true, newModel: nextModel }
+  return { success: true, newModel: nextModel, sameModel: false }
 }

@@ -120,6 +120,7 @@ describe("createRuntimeFallbackHook dispose", () => {
       fallbackIndex: 1,
       failedModels: new Map([["anthropic/claude-opus-4-7", 1]]),
       attemptCount: 1,
+      sameModelRetries: new Map(),
     })
     capturedDeps?.sessionLastAccess.set("session-1", Date.now())
     capturedDeps?.sessionRetryInFlight.add("session-1")

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os"
 import type { PluginInput } from "@opencode-ai/plugin"
 
 import { BackgroundManager } from "./manager"
+import { subagentSessions } from "../claude-code-session-state"
 
 async function waitForEvent(events: readonly string[], eventName: string): Promise<void> {
   const deadlineAt = Date.now() + 1_000
@@ -20,6 +21,7 @@ async function waitForEvent(events: readonly string[], eventName: string): Promi
 describe("BackgroundManager session created callback", () => {
   test("fires onSessionCreated before the launch prompt is sent", async () => {
     //#given
+    subagentSessions.clear()
     const events: string[] = []
     const client = {
       session: {
@@ -48,6 +50,7 @@ describe("BackgroundManager session created callback", () => {
       parentSessionId: "parent-session",
       parentMessageId: "parent-message",
       onSessionCreated: (sessionId) => {
+        expect(subagentSessions.has(sessionId)).toBe(true)
         events.push(`onSessionCreated:${sessionId}`)
       },
     })
