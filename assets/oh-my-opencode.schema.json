@@ -5675,10 +5675,27 @@
                 "type": "number"
               }
             },
+            "retry_same_model_on": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "retry_advance_chain_on": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
             "max_fallback_attempts": {
               "type": "number",
               "minimum": 1,
               "maximum": 20
+            },
+            "same_model_max_attempts": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
             },
             "cooldown_seconds": {
               "type": "number",
