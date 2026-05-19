@@ -184,6 +184,7 @@ function createHarness(args: {
         enabled: true,
         retry_on_errors: [429, 503, 529],
         max_fallback_attempts: 6,
+        same_model_max_attempts: 0,
         cooldown_seconds: 15,
         timeout_seconds: args.sessionTimeoutMs ? 30 : 0,
         notify_on_fallback: false,

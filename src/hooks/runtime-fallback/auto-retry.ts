@@ -103,7 +103,7 @@ export function createAutoRetryHelpers(deps: HookDeps) {
         currentModel: state.currentModel,
       })
 
-      const result = prepareFallback(sessionID, state, fallbackModels, config)
+      const result = prepareFallback(sessionID, state, fallbackModels, config, "chain_only")
       if (result.success && result.newModel) {
         await autoRetryWithFallback(sessionID, result.newModel, resolvedAgent, "session.timeout")
       }
@@ -117,10 +117,10 @@ export function createAutoRetryHelpers(deps: HookDeps) {
     newModel: string,
     resolvedAgent: string | undefined,
     source: string,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     if (sessionRetryInFlight.has(sessionID)) {
       log(`[${HOOK_NAME}] Retry already in flight, skipping (${source})`, { sessionID })
-      return
+      return false
     }
 
     const agentSettings = resolvedAgent
@@ -136,7 +136,7 @@ export function createAutoRetryHelpers(deps: HookDeps) {
       if (state?.pendingFallbackModel) {
         state.pendingFallbackModel = undefined
       }
-      return
+      return false
     }
 
     const hadAwaitingFallbackResult = sessionAwaitingFallbackResult.has(sessionID)
@@ -198,7 +198,7 @@ export function createAutoRetryHelpers(deps: HookDeps) {
             sessionID,
             status: promptResult.status,
           })
-          return
+          return false
         }
         sessionAwaitingFallbackResult.add(sessionID)
         if (hadAwaitingFallbackResult) {
@@ -229,6 +229,8 @@ export function createAutoRetryHelpers(deps: HookDeps) {
         }
       }
     }
+
+    return retryDispatched
   }
 
   const resolveAgentForSessionFromContext = async (

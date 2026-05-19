@@ -54,7 +54,7 @@ function createHelpers(clearCalls: string[]): AutoRetryHelpers {
       clearCalls.push(sessionID)
     },
     scheduleSessionFallbackTimeout: () => {},
-    autoRetryWithFallback: async () => {},
+    autoRetryWithFallback: async () => true,
     resolveAgentForSessionFromContext: async () => undefined,
     cleanupStaleSessions: () => {},
   }

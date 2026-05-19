@@ -1,4 +1,4 @@
-import type { FallbackState, FallbackResult } from "./types"
+import type { FallbackState, FallbackResult, RetryAction } from "./types"
 import { HOOK_NAME } from "./constants"
 import { log } from "../../shared/logger"
 import type { RuntimeFallbackConfig } from "../../config"
@@ -71,6 +71,7 @@ export function createFallbackState(originalModel: string): FallbackState {
     failedModels: new Map<string, number>(),
     attemptCount: 0,
     pendingFallbackModel: undefined,
+    sameModelRetries: new Map<string, number>(),
   }
 }
 
@@ -109,12 +110,85 @@ export function prepareFallback(
   sessionID: string,
   state: FallbackState,
   fallbackModels: string[],
-  config: Required<RuntimeFallbackConfig>
+  config: Required<RuntimeFallbackConfig>,
+  action?: RetryAction,
 ): FallbackResult {
+  state.pendingRetryAction = action
+
+  if (action === "none") {
+    return { success: false, error: "Retry policy blocked fallback" }
+  }
+
+  if (action === "chain_only") {
+    return advanceChain(sessionID, state, fallbackModels, config)
+  }
+
+  if (action === "same_model_then_chain") {
+    const sameModelResult = trySameModelRetry(sessionID, state, config)
+    if (sameModelResult) return sameModelResult
+    return advanceChain(sessionID, state, fallbackModels, config)
+  }
+
+  // Backward-compatible path (action undefined): preserve existing logic
   if (state.attemptCount >= config.max_fallback_attempts) {
     log(`[${HOOK_NAME}] Max fallback attempts reached`, { sessionID, attempts: state.attemptCount })
     return { success: false, error: "Max fallback attempts reached", maxAttemptsReached: true }
   }
+
+  if (config.same_model_max_attempts > 0) {
+    const currentModelRetries = state.sameModelRetries.get(state.currentModel) ?? 0
+    if (currentModelRetries < config.same_model_max_attempts) {
+      state.sameModelRetries.set(state.currentModel, currentModelRetries + 1)
+      state.attemptCount++
+      state.pendingFallbackModel = state.currentModel
+      log(`[${HOOK_NAME}] Same-model retry (${currentModelRetries + 1}/${config.same_model_max_attempts})`, {
+        sessionID,
+        model: state.currentModel,
+        attempt: state.attemptCount,
+      })
+      return { success: true, newModel: state.currentModel, sameModel: true }
+    }
+    state.sameModelRetries.delete(state.currentModel)
+  }
+
+  return advanceChain(sessionID, state, fallbackModels, config)
+}
+
+function trySameModelRetry(
+  sessionID: string,
+  state: FallbackState,
+  config: Required<RuntimeFallbackConfig>,
+): FallbackResult | null {
+  if (config.same_model_max_attempts > 0) {
+    const currentModelRetries = state.sameModelRetries.get(state.currentModel) ?? 0
+    if (currentModelRetries < config.same_model_max_attempts) {
+      state.sameModelRetries.set(state.currentModel, currentModelRetries + 1)
+      state.pendingFallbackModel = state.currentModel
+      log(`[${HOOK_NAME}] Same-model retry (${currentModelRetries + 1}/${config.same_model_max_attempts})`, {
+        sessionID,
+        model: state.currentModel,
+      })
+      return { success: true, newModel: state.currentModel, sameModel: true }
+    }
+    state.sameModelRetries.delete(state.currentModel)
+  }
+  return null
+}
+
+function advanceChain(
+  sessionID: string,
+  state: FallbackState,
+  fallbackModels: string[],
+  config: Required<RuntimeFallbackConfig>,
+): FallbackResult {
+  state.pendingRetryAction = undefined
+
+  if (state.attemptCount >= config.max_fallback_attempts) {
+    log(`[${HOOK_NAME}] Max fallback attempts reached`, { sessionID, attempts: state.attemptCount })
+    return { success: false, error: "Max fallback attempts reached", maxAttemptsReached: true }
+  }
+
+  state.sameModelRetries.delete(state.currentModel)
 
   const nextModel = findNextAvailableFallback(state, fallbackModels, config.cooldown_seconds)
 
@@ -139,5 +213,5 @@ export function prepareFallback(
   state.currentModel = nextModel
   state.pendingFallbackModel = nextModel
 
-  return { success: true, newModel: nextModel }
+  return { success: true, newModel: nextModel, sameModel: false }
 }

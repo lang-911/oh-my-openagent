@@ -1,5 +1,14 @@
 import type { RuntimeFallbackConfig, OhMyOpenCodeConfig } from "../../config"
 
+/** Retry action selected by classifyRetryPolicy and frozen through the dispatch cycle. */
+export type RetryAction = "none" | "same_model_then_chain" | "chain_only"
+
+/** Discriminated input for classifyRetryPolicy; each entry-point normalizes into one of these. */
+export type ClassifierInput =
+  | { kind: "error"; error: unknown }
+  | { kind: "auto_retry_signal"; text: string }
+  | { kind: "timeout" }
+
 export interface RuntimeFallbackInterval {
   unref: () => void
 }
@@ -44,6 +53,10 @@ export interface FallbackState {
   failedModels: Map<string, number>
   attemptCount: number
   pendingFallbackModel?: string
+  /** Per-model retry counter for same-model retries */
+  sameModelRetries: Map<string, number>
+  /** Retry action frozen at dispatch entry; consumed by the state machine loop */
+  pendingRetryAction?: RetryAction
 }
 
 export interface FallbackResult {
@@ -51,6 +64,8 @@ export interface FallbackResult {
   newModel?: string
   error?: string
   maxAttemptsReached?: boolean
+  /** When true, retrying the same model (not advancing the chain) */
+  sameModel?: boolean
 }
 
 export interface RuntimeFallbackOptions {
